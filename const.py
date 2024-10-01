@@ -1,45 +1,17 @@
 
 from enum import Enum as PyEnum
-from aenum import Enum, StrEnum, EnumMeta
+from aenum import Enum, EnumMeta
 from collections.abc import Hashable
-from functools import partialmethod
-import inspect
 import sys
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
-
-def is_system_attr(name: str, value: Any) -> bool:
-    """Return True if `(name, value)` denotes a *system attribute*
-
-    Parameters
-    ----------
-    name : str
-        attribute name
-    value : Any
-        attribute value
-
-    Returns
-    -------
-    bool
-        estimation of whether `(name, value)` denotes a _system attribute_
-
-    Description
-    -------
-    If `name` is prefixed with the string `"_"` or if  `value` is one of a
-    function, data descriptor, method descriptor (as per {:py:mod:}`inspect`), or
-    partial method, returns True, else returns False
-    """
-    return (
-        (isinstance(name, str) and name.startswith("_")) or
-        inspect.isfunction(value) or
-        inspect.isdatadescriptor(value) or
-        inspect.ismethoddescriptor(value) or
-        isinstance(value, partialmethod)
-    )
+from ecolog.util.namespace import is_system_attr
 
 
 class MetaConst(EnumMeta):
+    # metaclass for a Const enum
 
     def is_system_attr(k: str, v: Any) -> bool:
         return is_system_attr(k, v)
@@ -51,11 +23,22 @@ class MetaConst(EnumMeta):
         if len(args) is zero and len(kw) is zero:
             return mcls[name]
 
-        attrs: dict[str, str] = args[1]
+        attrs: Mapping[str, Any] = args[1]
         args = list(args)
 
         inattrs = dict()
         for k, v in attrs.items():
+            # call sys.intern for any name, value pairs
+            # for which sys.intern(obj) does not raise a
+            # TypeError, excepting any name, value pair
+            # interpreted as denoting a system attribute
+            # for the class namespace. In effect, this 
+            # should sys.intern any string name and any
+            # string value provided for an enum member.
+            # 
+            # It's assumed that any system attribute name 
+            # may be automatically sys.intern'd within the 
+            # Python implementation.
             if mcls.is_system_attr(k, v):
                 inattrs[k] = v
             else:
@@ -78,6 +61,7 @@ class MetaConst(EnumMeta):
 
 
 class Const(Enum, metaclass=MetaConst):
+    # Const enum base class
     if TYPE_CHECKING:
         name: str
         value: Hashable
@@ -85,6 +69,7 @@ class Const(Enum, metaclass=MetaConst):
         _value2member_map_: ClassVar[dict[Hashable, Self]]
 
     def __hash__(self) -> int:
+        # memoization for hash code
         try:
             return self._hash
         except AttributeError:
@@ -94,6 +79,25 @@ class Const(Enum, metaclass=MetaConst):
         return _h
 
     def __eq__(self, value: Any) -> bool:
+        # If 'value' is of the same class
+        # as self, then it must be the
+        # same object as self, in order
+        # for the Const 'value' to be
+        # __eq__ to self.
+        #
+        # Otherwise, this will use a 
+        # comparison of hash values. 
+        # Given the implementation of
+        # self.__hash__,  this may allow
+        # for comparing the provided 
+        # 'value' to the enum member 
+        # value for the Const enum
+        # member provided here as 'self'.
+        # 
+        # If a hash code cannot be determined
+        # for the value, then it's assumed to
+        # not be __eq__ to self
+        #
         if self.__class__ is value.__class__:
             return self is value
         try:
@@ -111,10 +115,16 @@ class StrConst(str, Const):
         return self.value
 
     def __hash__(self) -> int:
-        # must be defined here, for this class to be hashable
+        # __hash__ must be defined here, 
+        # given the implementaiton of __eq__
+        # in this class
         return super().__hash__()
 
     def __eq__(self, value: Any) -> bool:
+        # hash-based comparison under
+        # sys.intern, optimized for
+        # when the value is of the same
+        # class as self
         vcls = value.__class__
         if self.__class__ is vcls:
             return self is value
