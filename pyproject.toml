@@ -1,0 +1,19 @@
+[project]
+name = "ecolog-util"
+version = "0.1.0"
+description = "General Python utilty modules"
+authors = [
+    {name = "Sean Champ", email = "spchamp@users.noreply.github.com"},
+]
+dependencies = []
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.pdm]
+distribution = true
