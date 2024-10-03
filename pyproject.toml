@@ -5,7 +5,7 @@ description = "General Python utilty modules"
 authors = [
     {name = "Sean Champ", email = "spchamp@users.noreply.github.com"},
 ]
-dependencies = []
+dependencies = [ "aenum", "numpy" ]
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "MIT"}
